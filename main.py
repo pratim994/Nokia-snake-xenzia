@@ -80,7 +80,7 @@ def button(msg, x, y, w, h,ic,ac,action=None):
 
 
 def instructions():
-    popup=tk.TK()
+    popup=tk.Tk()
     popup.wm_title("Instructions")
     msg = "CONTROLS\n Use UP arrow key to move up. \n Use DOWN arrow key to move down. \n Use RIGHT and LEFT arrow keys to move right and left respectively.\n\n Level : NOOB \n\n The snake can pass through the boundaries of the walls and emerge from the other side. Gameplay ends only if snake eats itself.\n\nLevel : PRO \n\n The snake dies on hitting the boundaries of the wall. The gameplay also ends if snake eats itself."
     label = tk.label(popup, text=msg)
@@ -94,7 +94,73 @@ def quitgame():
 
 
     
-def isGameOver():
+def gameOver():
+    pygame.mixer.music.stop()
+    pygame.mixer.Sound.play(loser)
+    popup = tk.Tk()
+    popup.wm_title("STATUS")
+    msg = ("your score is :"+str(score))
+    label = tk.Label(popup,text=msg, font=NORM_FONT)
+    label.pack(side="top", fill ="x",padx =50, pady= 50)
+    B1 = tk.button(popup, text ="QUIT", command=popup.destroy)
+    B1.pack
+    popup.mainloop()
+    sys.exit()
+
+class Snake():
+
+    def __init__(self):
+        self.position = [100,40]
+        self.body = [[100,40],[80,40],[60,40]]
+        self.direction = "RIGHT"
+        self.changeDirection = self.directional
+
+    def changeDir(self, direction):
+        if self.direction == "RIGHT" and not self.direction == "LEFT":
+            self.direction = "RIGHT"
+
+        if self.direction == "LEFT" and not self.direction == "RIGHT":
+            self.direction == "LEFT"
+        
+        if self.direction == "UP" and not self.direction == "DOWN":
+            self.direction == "up"
+
+        if self.direction == "DOWN" and not self.direction == "UP":
+            self.direction == "DOWN"
+
+
+    def move(self, foodPos):
+        if self.direction == "RIGHT":
+            self.position[0] += 20
+        if self.direction == "LEFT":
+            self.position[0] -= 20
+        if self.direction == "UP":
+            self.position[1] -= 20
+        if self.direction == "DOWN":
+            self.direction[1] += 20
+
+        self.body.insert(0,list(self.position))
+        if self.position[0]+5 == foodPos[0] and self.position[1]+5 == foodPos[1]:
+            return 1
+        else:
+            self.body.pop()
+            return 0
+
+    def checkCollision(self):
+        if self.position[0] > 460 or self.position[0]<20 or self.position[1] > 460 or self.position[1]<20:
+            return 1
+
+        for bodyPart in self.body[1:]:
+            if self.position == bodypart:
+                return 1
+        return 0
+
+    def getHeadPos(self):
+        return self.position
+    
+    def getBody(self):
+        return self.body
+
     
 
 
@@ -102,10 +168,3 @@ def isGameOver():
 
 
 
-def food_spawn():
-
-
-def score():
-
-
-if __init__ == "__main__":
