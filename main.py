@@ -161,7 +161,60 @@ class Snake():
     def getBody(self):
         return self.body
 
+class FoodSpawn():
+    def __init__(self):
+        self.position = [random.randrange(2,24)*20+5, random.randrange(2,24)*20+5]
+        self.isFoodScreen = True
+
+    def spawnFood(self):
+        if self.isFoodOnScreen == False:
+            self.position = [random.randrange(2,24)*20+5, random.randrange(2,24)*20+5]
+            self.isFoodOnScreen = True
+        return self.position
+    def respawnFood(self,boolean):
+        self.isFoodOnScreen = boolean
+
+snake = Snake()
+foodSpawner = FoodSpawn()
+
+def game_start():
+    global score
+    score = 0
+    pygame.mixer.music.play(-1)
     
+    while True:
+        for event in pygame.event.get():
+            if event.type == pyagme.QUIT:
+                gameOver()
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RIGHT:
+                    snake.changeDir("RIGHT")
+
+                if event.key == pygame.K_LEFT:
+                    snake.changeDir("LEFT")
+
+                if event.key == pygame.K_UP:
+                    snake.changeDir("UP")
+
+                if event.key == pygame.K_DOWN:
+                    snake.changeDir("DOWN")
+
+        foodPos = foodSpawner.spawnFood()
+
+    if (snake.move(foodPos)==True):
+        score += 1
+        pygame.mixer.music.pause()
+        pygame.mixer.Sound.play(score_point)
+        pygame.mixer.music.unpause()
+
+        foodSpawner.respawnFood(False)
+    display.fill(pygame.Color(0,0,0))
+    pygame.draw.rect(display, gray,[0,0,500,20])
+    pygame.draw.rect(display, gray,[0,0,20,500])
+    pygame.draw.rect(display, gray,[480,0,20,500])
+    pygame.draw.rect(display, gray,[0,480,500,20])
+   
 
 
 
