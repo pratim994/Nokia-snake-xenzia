@@ -216,8 +216,114 @@ def game_start():
     pygame.draw.rect(display, gray,[0,480,500,20])
    
 
+    for x in range(25+1):
+        startx = (x*20)
+        starty = 0
+        endx = (x*20)
+        endy = (25*20)
+        pygame.draw.line(display, (7,7,7), (startx, starty),(endx, endy))
+
+    for y in range(25+1):
+        startx = 0
+        starty = (y*20)
+        endx = (25*20)
+        endy = (y*20)
+        pygame.draw.line(display, (7,7,7), (startx, starty),(endx, endy))
 
 
 
+    for position in snake.getBody():
+        pygame.draw.circle(display, pygame.Color(0,255,0), position[0]+10, position[1]+10,10)
+    pygame.draw.rect(display, pygame.Color(255,0,0),pygame.Rect(foodPos[0],foodPos[1],10,10))
+
+    if (snake.checkCollision() == 1):
+        gameOver()
 
 
+    pygame.display.set_caption("SNAKE XENZIA ||| :" + str(score))
+    pygame.displa.flip()
+    fps.tick(10)
+
+
+class Snake_l1():
+    def __init__(self):
+        self.position = [100,40]
+        self.body = [[100,40],[80,40],[60,40]]
+        self.direction = "RIGHT"
+        self.changeDirection = self.direction
+
+       def changeDir(self,direction):             
+        if direction == "RIGHT" and not self.direction == "LEFT" :
+            self.direction = "RIGHT"
+        if direction == "LEFT" and not self.direction == "RIGHT" :
+            self.direction = "LEFT"
+        if direction == "UP" and not self.direction == "DOWN" :
+            self.direction = "UP"
+        if direction == "DOWN" and not self.direction == "UP" :
+            self.direction = "DOWN"
+
+
+    def move(self, foodPos):                    
+        if self.direction == "RIGHT":           
+            self.position[0] += 20
+        if self.direction == "LEFT":             
+            self.position[0] -= 20
+        if self.direction == "UP":              
+            self.position[1] -= 20
+        if self.direction == "DOWN":             
+            self.position[1] += 20
+
+        self.body.insert(0,list(self.position))
+
+        if self.position[0]+5  == foodPos[0] and self.position[1]+5 == foodPos[1]:
+            return 1
+
+        else:
+            self.body.pop()
+            return 0
+
+    def checkCollision(self):
+
+    if self.position[1]<0 and self.direction=="UP" :
+        self.position[1]=500
+
+    if self.position[1]>480 and self.direction=="DOWN":
+        self.position[1] -= 20
+
+    if self.position[0] < 0 and self.direction  == "LEFT":
+        self.position[0] = 500
+
+    if self.position[0] > 0 and self.direction == "RIGHT":
+        self.position[0] -= 20
+
+        for bodyPart in self.body[1:]:
+            if self.position == bodyPart:
+                return 1
+        return 0
+
+    def getHeadPos(self):
+       return self.position
+
+    def getBody(self):
+        return self.body
+
+class FoodSpawn_l1():
+    def __init__(self);
+        self.position = [random.randrange(1,25)*20+5, random.randrange(1,25)*20+5]
+        self.isFoodOnScreen = True
+    
+    def spawnFood(self):
+        if self.isFoodOnScreen == False:
+            self.position = [random.randrange(1,25)*20+5, random.randrange(1,25)*20+5]
+            self.isFoodOnScreen = True
+        return self.position
+
+    def respawnFood(self, boolean):
+        self.isFoodOnScreen = boolean
+
+snake_noob = Snake_l1()
+foodSpawner_noob = FoodSpawn_l1()
+
+
+def game_play():
+    global score 
