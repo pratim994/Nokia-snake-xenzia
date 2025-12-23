@@ -1,386 +1,269 @@
-import numpy as np
 import pygame
-import pygame.freetype
-from ai import Logic
-import random , sys , time
-
-import Tkinter as tkinter
-from Tkinter import *
+import sys
+import random
+import tkinter as tk
+from tkinter import Tk, Label, Button
 
 pygame.init()
 
-display_width = 600
-display_length = 600
-NORM_FONT = ("Verdana", 12) 
-black = (0,0,0)
-white(255, 255, 255)
-red = (140,8,8)
-green = (8,140,10)
-yellow =(209,209,8)
-blue = (69, 92, 244)
-bright_green = (137,244,66)
-bright_yellow = (239,239,98)
-bright_red = (226, 71, 61)
-gray = (0,0,255)
+# Constants
+DISPLAY_WIDTH = 600
+DISPLAY_HEIGHT = 600
+GRID_SIZE = 20
+GRID_WIDTH = DISPLAY_WIDTH // GRID_SIZE
+GRID_HEIGHT = DISPLAY_HEIGHT // GRID_SIZE
 
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (140, 8, 8)
+GREEN = (8, 140, 10)
+YELLOW = (209, 209, 8)
+BRIGHT_GREEN = (137, 244, 66)
+BRIGHT_YELLOW = (239, 239, 98)
+BRIGHT_RED = (226, 71, 61)
+GRAY = (50, 50, 50)
+DARK_GRAY = (7, 7, 7)
+SNAKE_COLOR = (0, 255, 0)
+FOOD_COLOR = (255, 0, 0)
 
-display = pygame.display.set_mode(display_width, dispaly_height)
+display = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT))
 pygame.display.set_caption("SNAKE XENZIA")
 fps = pygame.time.Clock()
-clock = pygame.time.Clock()
 
-pygame.mixer.music.load("background_music.mp3")
-loser = pygame.mixer.Sound("loser.wav")
-score_point = pygame.mixer.Sound("score.wav")
+# Sounds (make sure these files exist in the same folder)
+pygame.mixer.music.load("background.wav")
+loser_sound = pygame.mixer.Sound("loser.wav")
+score_sound = pygame.mixer.Sound("score.wav")
 
+# Fonts
+def text_objects(text, font, color=BLACK):
+    text_surface = font.render(text, True, color)
+    return text_surface, text_surface.get_rect()
 
+def button(msg, x, y, w, h, ic, ac, action=None):
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed(3)
 
+    if x < mouse[0] < x + w and y < mouse[1] < y + h:
+        pygame.draw.rect(display, ac, (x, y, w, h))
+        if click[0] == 1 and action:
+            action()
+    else:
+        pygame.draw.rect(display, ic, (x, y, w, h))
+
+    small_text = pygame.font.SysFont("comicsansms", 30)
+    text_surf, text_rect = text_objects(msg, small_text)
+    text_rect.center = (x + w // 2, y + h // 2)
+    display.blit(text_surf, text_rect)
+
+def message_display(text, size=50, color=BLACK, y_offset=0):
+    font = pygame.font.Font(None, size)
+    text_surf, text_rect = text_objects(text, font, color)
+    text_rect.center = (DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2 + y_offset)
+    display.blit(text_surf, text_rect)
+
+def instructions():
+    root = Tk()
+    root.title("Instructions")
+    root.geometry("500x400")
+    msg = (
+        "CONTROLS\n"
+        "Use ARROW KEYS to move the snake.\n\n"
+        "LEVEL: NOOB\n"
+        "• Snake can pass through walls (wrap around)\n"
+        "• Game ends only if snake eats itself\n\n"
+        "LEVEL: PRO\n"
+        "• Snake dies on hitting walls\n"
+        "• Game ends on wall hit or eating itself"
+    )
+    Label(root, text=msg, font=("Verdana", 12), justify="left").pack(pady=20, padx=20)
+    Button(root, text="OK", command=root.destroy, width=10).pack()
+    root.mainloop()
+
+def game_over(score):
+    pygame.mixer.music.stop()
+    loser_sound.play()
+    root = Tk()
+    root.title("GAME OVER")
+    Label(root, text=f"Your Score: {score}", font=("Verdana", 20)).pack(pady=50)
+    Button(root, text="QUIT", command=sys.exit, width=10).pack()
+    root.mainloop()
+
+# Base Snake Class (shared logic)
+class Snake:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.position = [100, 100]
+        self.body = [[100, 100], [80, 100], [60, 100]]
+        self.direction = "RIGHT"
+        self.change_to = self.direction
+
+    def change_direction(self, direction):
+        if (direction == "RIGHT" and self.direction != "LEFT") or \
+           (direction == "LEFT" and self.direction != "RIGHT") or \
+           (direction == "UP" and self.direction != "DOWN") or \
+           (direction == "DOWN" and self.direction != "UP"):
+            self.change_to = direction
+
+    def move(self, food_pos):
+        # Update head
+        if self.change_to == "RIGHT": self.position[0] += GRID_SIZE
+        if self.change_to == "LEFT":  self.position[0] -= GRID_SIZE
+        if self.change_to == "UP":    self.position[1] -= GRID_SIZE
+        if self.change_to == "DOWN":  self.position[1] += GRID_SIZE
+
+        self.direction = self.change_to
+        self.body.insert(0, list(self.position))
+
+        # Check if food eaten
+        if abs(self.position[0] - food_pos[0]) < 10 and abs(self.position[1] - food_pos[1]) < 10:
+            return True
+        else:
+            self.body.pop()
+            return False
+
+    def check_collision(self):
+        # Self collision
+        if self.position in self.body[1:]:
+            return True
+        return False
+
+    def get_head(self):
+        return self.position
+
+    def get_body(self):
+        return self.body
+
+# PRO Mode Snake (walls kill)
+class ProSnake(Snake):
+    def check_collision(self):
+        if super().check_collision():
+            return True
+        # Wall collision
+        if (self.position[0] < 20 or self.position[0] >= DISPLAY_WIDTH - 20 or
+            self.position[1] < 20 or self.position[1] >= DISPLAY_HEIGHT - 20):
+            return True
+        return False
+
+# NOOB Mode Snake (wrap around)
+class NoobSnake(Snake):
+    def move(self, food_pos):
+        eaten = super().move(food_pos)
+        # Wrap around
+        if self.position[0] < 0: self.position[0] = DISPLAY_WIDTH - GRID_SIZE
+        if self.position[0] >= DISPLAY_WIDTH: self.position[0] = 0
+        if self.position[1] < 0: self.position[1] = DISPLAY_HEIGHT - GRID_SIZE
+        if self.position[1] >= DISPLAY_HEIGHT: self.position[1] = 0
+        self.body[0] = list(self.position)
+        return eaten
+
+    def check_collision(self):
+        return super().check_collision()  # Only self-eat ends game
+
+class Food:
+    def __init__(self):
+        self.spawn()
+
+    def spawn(self):
+        self.position = [
+            random.randint(1, GRID_WIDTH - 2) * GRID_SIZE,
+            random.randint(1, GRID_HEIGHT - 2) * GRID_SIZE
+        ]
+        self.on_screen = True
+
+    def hide(self):
+        self.on_screen = False
+
+def draw_grid():
+    for x in range(0, DISPLAY_WIDTH, GRID_SIZE):
+        pygame.draw.line(display, DARK_GRAY, (x, 0), (x, DISPLAY_HEIGHT))
+    for y in range(0, DISPLAY_HEIGHT, GRID_SIZE):
+        pygame.draw.line(display, DARK_GRAY, (0, y), (DISPLAY_WIDTH, y))
+
+def draw_walls():
+    thickness = 20
+    pygame.draw.rect(display, GRAY, (0, 0, DISPLAY_WIDTH, thickness))  # top
+    pygame.draw.rect(display, GRAY, (0, DISPLAY_HEIGHT - thickness, DISPLAY_WIDTH, thickness))  # bottom
+    pygame.draw.rect(display, GRAY, (0, 0, thickness, DISPLAY_HEIGHT))  # left
+    pygame.draw.rect(display, GRAY, (DISPLAY_WIDTH - thickness, 0, thickness, DISPLAY_HEIGHT))  # right
+
+def game_loop(mode="pro"):
+    global score
+    score = 0
+    pygame.mixer.music.play(-1)
+
+    if mode == "pro":
+        snake = ProSnake()
+    else:
+        snake = NoobSnake()
+
+    food = Food()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RIGHT:
+                    snake.change_direction("RIGHT")
+                elif event.key == pygame.K_LEFT:
+                    snake.change_direction("LEFT")
+                elif event.key == pygame.K_UP:
+                    snake.change_direction("UP")
+                elif event.key == pygame.K_DOWN:
+                    snake.change_direction("DOWN")
+
+        # Move snake
+        if snake.move(food.position):
+            score += 1
+            score_sound.play()
+            food.hide()
+
+        if not food.on_screen:
+            food.spawn()
+
+        # Check collision
+        if snake.check_collision():
+            game_over(score)
+
+        # Draw everything
+        display.fill(BLACK)
+        draw_grid()
+        if mode == "pro":
+            draw_walls()
+
+        # Draw snake
+        for segment in snake.get_body():
+            pygame.draw.circle(display, SNAKE_COLOR, (segment[0] + 10, segment[1] + 10), 10)
+
+        # Draw food
+        pygame.draw.rect(display, FOOD_COLOR, (*food.position, GRID_SIZE, GRID_SIZE))
+
+        # Update caption
+        pygame.display.set_caption(f"SNAKE XENZIA ||| SCORE: {score}")
+        pygame.display.flip()
+        fps.tick(10)
 
 def game_intro():
     while True:
         for event in pygame.event.get():
-            print(event)
-
             if event.type == pygame.QUIT:
                 pygame.quit()
-                quit()
-        display.fill(white)
+                sys.exit()
 
-        largeText = pygame.font.Font('freeansbold.ttf',40)
-        TextSurf, TextRect =  text_objects("SNAKE XENZIA", largeText)
-        textRect.center = ((display_width/2),(display_height/8))
-        display.blit(TextSurf, TextRect)
+        display.fill(WHITE)
+        message_display("SNAKE XENZIA", 60, BLACK, -100)
 
-        button("Noob",100,150,100,50,green,bright_green,game_play)
-        button("Pro",300,150,100,50,green,bright_green,game_start)
-        button("Instructions",200,250,100,50,yellow,bright_yellow,instructions)
-        button("Quit",200,350,100,50,red,bright_red,quitgame)
+        button("Noob", 100, 200, 150, 70, GREEN, BRIGHT_GREEN, lambda: game_loop("noob"))
+        button("Pro", 350, 200, 150, 70, GREEN, BRIGHT_GREEN, lambda: game_loop("pro"))
+        button("Instructions", 200, 300, 200, 70, YELLOW, BRIGHT_YELLOW, instructions)
+        button("Quit", 200, 400, 200, 70, RED, BRIGHT_RED, sys.exit)
 
         pygame.display.update()
         fps.tick(15)
-def text_objects(text, font):
-    text_surface =  font.render(text. True, black)
-    return text_surface, text_surface.get_rect()
 
-def button(msg, x, y, w, h,ic,ac,action=None):
-    mouse = pygame.mouse.get_pos()
-    click = pygame.get_pressed()
-    print(click)
-    if x+w > mouse[0] > x and y+h > mouse[1] > y:
-        pygame.draw.rect(display, ac, (x,y,w,h))
-
-        if click[0] == 1 and action != None:
-            action()
-        else:
-            pygame.draw.rect(dispaly, ic, (x,y,w,h))
-        smallText = pyagme.font.SysFont("comicsans",20)
-        textSurf, textRect = text_objects(msg,smallText)
-        rect.center = ((x+(w/2),y+(h/2)))
-        display.blit(textSurf, textRect)
-
-
-def instructions():
-    popup=tk.Tk()
-    popup.wm_title("Instructions")
-    msg = "CONTROLS\n Use UP arrow key to move up. \n Use DOWN arrow key to move down. \n Use RIGHT and LEFT arrow keys to move right and left respectively.\n\n Level : NOOB \n\n The snake can pass through the boundaries of the walls and emerge from the other side. Gameplay ends only if snake eats itself.\n\nLevel : PRO \n\n The snake dies on hitting the boundaries of the wall. The gameplay also ends if snake eats itself."
-    label = tk.label(popup, text=msg)
-    label.pack(side="top",fill="x",pady=10)
-    B1 = tk.Button(popup, text="okay",command= popup.destroy)
-    B1.pack()
-    popup.mainloop()
-
-def quitgame():
-    sys.exit()
-
-
-    
-def gameOver():
-    pygame.mixer.music.stop()
-    pygame.mixer.Sound.play(loser)
-    popup = tk.Tk()
-    popup.wm_title("STATUS")
-    msg = ("your score is :"+str(score))
-    label = tk.Label(popup,text=msg, font=NORM_FONT)
-    label.pack(side="top", fill ="x",padx =50, pady= 50)
-    B1 = tk.button(popup, text ="QUIT", command=popup.destroy)
-    B1.pack
-    popup.mainloop()
-    sys.exit()
-
-class Snake():
-
-    def __init__(self):
-        self.position = [100,40]
-        self.body = [[100,40],[80,40],[60,40]]
-        self.direction = "RIGHT"
-        self.changeDirection = self.directional
-
-    def changeDir(self, direction):
-        if self.direction == "RIGHT" and not self.direction == "LEFT":
-            self.direction = "RIGHT"
-
-        if self.direction == "LEFT" and not self.direction == "RIGHT":
-            self.direction == "LEFT"
-        
-        if self.direction == "UP" and not self.direction == "DOWN":
-            self.direction == "up"
-
-        if self.direction == "DOWN" and not self.direction == "UP":
-            self.direction == "DOWN"
-
-
-    def move(self, foodPos):
-        if self.direction == "RIGHT":
-            self.position[0] += 20
-        if self.direction == "LEFT":
-            self.position[0] -= 20
-        if self.direction == "UP":
-            self.position[1] -= 20
-        if self.direction == "DOWN":
-            self.direction[1] += 20
-
-        self.body.insert(0,list(self.position))
-        if self.position[0]+5 == foodPos[0] and self.position[1]+5 == foodPos[1]:
-            return 1
-        else:
-            self.body.pop()
-            return 0
-
-    def checkCollision(self):
-        if self.position[0] > 460 or self.position[0]<20 or self.position[1] > 460 or self.position[1]<20:
-            return 1
-
-        for bodyPart in self.body[1:]:
-            if self.position == bodypart:
-                return 1
-        return 0
-
-    def getHeadPos(self):
-        return self.position
-    
-    def getBody(self):
-        return self.body
-
-class FoodSpawn():
-    def __init__(self):
-        self.position = [random.randrange(2,24)*20+5, random.randrange(2,24)*20+5]
-        self.isFoodScreen = True
-
-    def spawnFood(self):
-        if self.isFoodOnScreen == False:
-            self.position = [random.randrange(2,24)*20+5, random.randrange(2,24)*20+5]
-            self.isFoodOnScreen = True
-        return self.position
-    def respawnFood(self,boolean):
-        self.isFoodOnScreen = boolean
-
-snake = Snake()
-foodSpawner = FoodSpawn()
-
-def game_start():
-    global score
-    score = 0
-    pygame.mixer.music.play(-1)
-    
-    while True:
-        for event in pygame.event.get():
-            if event.type == pyagme.QUIT:
-                gameOver()
-
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RIGHT:
-                    snake.changeDir("RIGHT")
-
-                if event.key == pygame.K_LEFT:
-                    snake.changeDir("LEFT")
-
-                if event.key == pygame.K_UP:
-                    snake.changeDir("UP")
-
-                if event.key == pygame.K_DOWN:
-                    snake.changeDir("DOWN")
-
-        foodPos = foodSpawner.spawnFood()
-
-    if (snake.move(foodPos)==True):
-        score += 1
-        pygame.mixer.music.pause()
-        pygame.mixer.Sound.play(score_point)
-        pygame.mixer.music.unpause()
-
-        foodSpawner.respawnFood(False)
-    display.fill(pygame.Color(0,0,0))
-    pygame.draw.rect(display, gray,[0,0,500,20])
-    pygame.draw.rect(display, gray,[0,0,20,500])
-    pygame.draw.rect(display, gray,[480,0,20,500])
-    pygame.draw.rect(display, gray,[0,480,500,20])
-   
-
-    for x in range(25+1):
-        startx = (x*20)
-        starty = 0
-        endx = (x*20)
-        endy = (25*20)
-        pygame.draw.line(display, (7,7,7), (startx, starty),(endx, endy))
-
-    for y in range(25+1):
-        startx = 0
-        starty = (y*20)
-        endx = (25*20)
-        endy = (y*20)
-        pygame.draw.line(display, (7,7,7), (startx, starty),(endx, endy))
-
-
-
-    for position in snake.getBody():
-        pygame.draw.circle(display, pygame.Color(0,255,0), position[0]+10, position[1]+10,10)
-    pygame.draw.rect(display, pygame.Color(255,0,0),pygame.Rect(foodPos[0],foodPos[1],10,10))
-
-    if (snake.checkCollision() == 1):
-        gameOver()
-
-
-    pygame.display.set_caption("SNAKE XENZIA ||| :" + str(score))
-    pygame.displa.flip()
-    fps.tick(10)
-
-
-class Snake_l1():
-    def __init__(self):
-        self.position = [100,40]
-        self.body = [[100,40],[80,40],[60,40]]
-        self.direction = "RIGHT"
-        self.changeDirection = self.direction
-
-       def changeDir(self,direction):             
-        if direction == "RIGHT" and not self.direction == "LEFT" :
-            self.direction = "RIGHT"
-        if direction == "LEFT" and not self.direction == "RIGHT" :
-            self.direction = "LEFT"
-        if direction == "UP" and not self.direction == "DOWN" :
-            self.direction = "UP"
-        if direction == "DOWN" and not self.direction == "UP" :
-            self.direction = "DOWN"
-
-
-    def move(self, foodPos):                    
-        if self.direction == "RIGHT":           
-            self.position[0] += 20
-        if self.direction == "LEFT":             
-            self.position[0] -= 20
-        if self.direction == "UP":              
-            self.position[1] -= 20
-        if self.direction == "DOWN":             
-            self.position[1] += 20
-
-        self.body.insert(0,list(self.position))
-
-        if self.position[0]+5  == foodPos[0] and self.position[1]+5 == foodPos[1]:
-            return 1
-
-        else:
-            self.body.pop()
-            return 0
-
-    def checkCollision(self):
-
-    if self.position[1]<0 and self.direction=="UP" :
-        self.position[1]=500
-
-    if self.position[1]>480 and self.direction=="DOWN":
-        self.position[1] -= 20
-
-    if self.position[0] < 0 and self.direction  == "LEFT":
-        self.position[0] = 500
-
-    if self.position[0] > 0 and self.direction == "RIGHT":
-        self.position[0] -= 20
-
-        for bodyPart in self.body[1:]:
-            if self.position == bodyPart:
-                return 1
-        return 0
-
-    def getHeadPos(self):
-       return self.position
-
-    def getBody(self):
-        return self.body
-
-class FoodSpawn_l1():
-    def __init__(self);
-        self.position = [random.randrange(1,25)*20+5, random.randrange(1,25)*20+5]
-        self.isFoodOnScreen = True
-    
-    def spawnFood(self):
-        if self.isFoodOnScreen == False:
-            self.position = [random.randrange(1,25)*20+5, random.randrange(1,25)*20+5]
-            self.isFoodOnScreen = True
-        return self.position
-
-    def respawnFood(self, boolean):
-        self.isFoodOnScreen = boolean
-
-snake_noob = Snake_l1()
-foodSpawner_noob = FoodSpawn_l1()
-
-
-def game_play():
-    global score 
-    score = 0
-    pygame.mixer.music.paly(-1)
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:               
-             gameOver()
-            elif event.type == pygame.KEYDOWN:          
-              if event.key == pygame.K_RIGHT:
-                  snake_noob.changeDir("RIGHT")
-              if event.key == pygame.K_LEFT:
-                  snake_noob.changeDir("LEFT")
-              if event.key == pygame.K_UP:
-                   snake_noob.changeDir("UP")
-              if event.key == pygame.K_DOWN:
-                snake_noob.changeDir("DOWN")
-
-    foodPos = foodSpawner_noob.spawnFood()              
-
-    if (snake_noob.move(foodPos) == True):
-        score += 1
-        pygame.mixer.music.pause()
-        pygame.mixer.Sound.play(score_point)
-        pygame.mixer.music.unpause()
-
-        foodSpawner_noob.respawnFood(False)
-
-    display.fill(pygame.Color(0,0,0))            
-
-
-    for x in range(25 + 1):
-        startx = (x * 20)
-        starty = 0
-        endx = (x * 20)
-        endy = (25 * 20)
-        pygame.draw.line(display, (7,7,7), (startx, starty), (endx, endy))
-
-    for y in range(25 + 1):
-        startx = 0
-        starty = (y * 20)
-        endx = (25 * 20)
-        endy = (y * 20)
-        pygame.draw.line(display, (7,7,7), (startx, starty), (endx, endy))
- 
-     for position in snake_noob.getBody():                
-        pygame.draw.circle(display, pygame.Color(0,225,0),(position[0]+10, position[1]+10), 10)
-
-    pygame.draw.rect(display, pygame.Color(225,0,0), pygame.Rect(foodPos[0],foodPos[1], 10, 10))          
-
-    if (snake_noob.checkCollision() == 1 ):           
-        gameOver()
-
-    pygame.display.set_caption("SNAKE XENZIA ||| SCORE : "+ str(score))
-
-    pygame.display.flip()                           
-    fps.tick(10)                                   
-
-game_intro()    
+# Start the game
+game_intro()
