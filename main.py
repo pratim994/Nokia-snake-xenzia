@@ -58,10 +58,42 @@ def game_intro():
 
         pygame.display.update()
         fps.tick(15)
+def text_objects(text, font):
+    text_surface =  font.render(text. True, black)
+    return text_surface, text_surface.get_rect()
+
+def button(msg, x, y, w, h,ic,ac,action=None):
+    mouse = pygame.mouse.get_pos()
+    click = pygame.get_pressed()
+    print(click)
+    if x+w > mouse[0] > x and y+h > mouse[1] > y:
+        pygame.draw.rect(display, ac, (x,y,w,h))
+
+        if click[0] == 1 and action != None:
+            action()
+        else:
+            pygame.draw.rect(dispaly, ic, (x,y,w,h))
+        smallText = pyagme.font.SysFont("comicsans",20)
+        textSurf, textRect = text_objects(msg,smallText)
+        rect.center = ((x+(w/2),y+(h/2)))
+        display.blit(textSurf, textRect)
 
 
+def instructions():
+    popup=tk.TK()
+    popup.wm_title("Instructions")
+    msg = "CONTROLS\n Use UP arrow key to move up. \n Use DOWN arrow key to move down. \n Use RIGHT and LEFT arrow keys to move right and left respectively.\n\n Level : NOOB \n\n The snake can pass through the boundaries of the walls and emerge from the other side. Gameplay ends only if snake eats itself.\n\nLevel : PRO \n\n The snake dies on hitting the boundaries of the wall. The gameplay also ends if snake eats itself."
+    label = tk.label(popup, text=msg)
+    label.pack(side="top",fill="x",pady=10)
+    B1 = tk.Button(popup, text="okay",command= popup.destroy)
+    B1.pack()
+    popup.mainloop()
+
+def quitgame():
+    sys.exit()
 
 
+    
 def isGameOver():
     
 
