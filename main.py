@@ -327,3 +327,60 @@ foodSpawner_noob = FoodSpawn_l1()
 
 def game_play():
     global score 
+    score = 0
+    pygame.mixer.music.paly(-1)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:               
+             gameOver()
+            elif event.type == pygame.KEYDOWN:          
+              if event.key == pygame.K_RIGHT:
+                  snake_noob.changeDir("RIGHT")
+              if event.key == pygame.K_LEFT:
+                  snake_noob.changeDir("LEFT")
+              if event.key == pygame.K_UP:
+                   snake_noob.changeDir("UP")
+              if event.key == pygame.K_DOWN:
+                snake_noob.changeDir("DOWN")
+
+    foodPos = foodSpawner_noob.spawnFood()              
+
+    if (snake_noob.move(foodPos) == True):
+        score += 1
+        pygame.mixer.music.pause()
+        pygame.mixer.Sound.play(score_point)
+        pygame.mixer.music.unpause()
+
+        foodSpawner_noob.respawnFood(False)
+
+    display.fill(pygame.Color(0,0,0))            
+
+
+    for x in range(25 + 1):
+        startx = (x * 20)
+        starty = 0
+        endx = (x * 20)
+        endy = (25 * 20)
+        pygame.draw.line(display, (7,7,7), (startx, starty), (endx, endy))
+
+    for y in range(25 + 1):
+        startx = 0
+        starty = (y * 20)
+        endx = (25 * 20)
+        endy = (y * 20)
+        pygame.draw.line(display, (7,7,7), (startx, starty), (endx, endy))
+ 
+     for position in snake_noob.getBody():                
+        pygame.draw.circle(display, pygame.Color(0,225,0),(position[0]+10, position[1]+10), 10)
+
+    pygame.draw.rect(display, pygame.Color(225,0,0), pygame.Rect(foodPos[0],foodPos[1], 10, 10))          
+
+    if (snake_noob.checkCollision() == 1 ):           
+        gameOver()
+
+    pygame.display.set_caption("SNAKE XENZIA ||| SCORE : "+ str(score))
+
+    pygame.display.flip()                           
+    fps.tick(10)                                   
+
+game_intro()    
